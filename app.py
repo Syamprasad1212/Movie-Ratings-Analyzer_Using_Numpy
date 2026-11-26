@@ -107,6 +107,25 @@ elif section == "Rating Statistics":
     st.subheader("Rating Distribution")
     st.bar_chart(rating_data.set_index("Rating"))
 
+    st.subheader("Rating Distribution")
+
+    rating_counts = ratings["rating"].value_counts().sort_index()
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    ax.bar(
+        rating_counts.index,
+        rating_counts.values
+    )
+
+    ax.set_title("Distribution of Movie Ratings")
+    ax.set_xlabel("Rating")
+    ax.set_ylabel("Number of Ratings")
+    ax.set_xticks(rating_counts.index)
+
+    st.pyplot(fig)
+    plt.close(fig)
+
 # -----------------------------
 # 8. Top 10 Most Rated Movies
 # -----------------------------
@@ -133,6 +152,29 @@ elif section == "Top 10 Most Rated Movies":
 
     st.subheader("Most Popular Movies")
     st.bar_chart(result.set_index("title")["Rating Count"])
+
+    st.subheader("Top 10 Most Rated Movies (Matplotlib)")
+
+    chart_data = result.sort_values(
+        "Rating Count",
+        ascending=True
+    )
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    ax.barh(
+        chart_data["title"],
+        chart_data["Rating Count"]
+    )
+
+    ax.set_xlabel("Number of Ratings")
+    ax.set_ylabel("Movie")
+    ax.set_title("Top 10 Most Rated Movies")
+
+    plt.tight_layout()
+
+    st.pyplot(fig)
+    plt.close(fig)
 
 # -----------------------------
 # 9. Top 10 Highest Rated Movies
