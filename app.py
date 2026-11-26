@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 # -----------------------------
 # 1. Page Configuration
@@ -60,6 +61,7 @@ section = st.sidebar.selectbox(
         "Top 10 Most Rated Movies",
         "Top 10 Highest Rated Movies",
         "User Rating Analysis",
+        "Genre Analysis",
         "Find Similar Movies"
     ]
 )
@@ -214,6 +216,52 @@ elif section == "User Rating Analysis":
     )
 
 # -----------------------------
+# 11. Genre Analysis
+# -----------------------------
+
+elif section == "Genre Analysis":
+
+    st.header("🎭 Genre Analysis")
+
+    # Calculate movie-wise rating statistics
+    movie_stats = ratings.groupby("movieId").agg(
+        average_rating=("rating", "mean"),
+        rating_count=("rating", "count")
+    ).reset_index()
+
+    # Merge movie information
+    genre_data = movies.merge(movie_stats, on="movieId")
+
+    # Split multiple genres into separate rows
+    genre_data["genres"] = genre_data["genres"].str.split("|")
+
+    genre_data = genre_data.explode("genres")
+
+    # Calculate weighted average rating per genre
+    weighted_genre_stats = genre_data.groupby("genres").apply(
+        lambda group: (
+            (group["average_rating"] * group["rating_count"]).sum()
+            / group["rating_count"].sum()
+        ),
+        include_groups=False
+    ).reset_index(name="weighted_average")
+
+    # Display results
+    weighted_genre_stats = weighted_genre_stats.sort_values(
+        "weighted_average",
+        ascending=False
+    )
+
+    st.subheader("Weighted Average Rating by Genre")
+
+    st.dataframe(
+        weighted_genre_stats.round(2),
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+# -----------------------------
 # 11. Find Similar Movies
 # -----------------------------
 elif section == "Find Similar Movies":
@@ -305,4 +353,4 @@ elif section == "Find Similar Movies":
 # 12. Footer
 # -----------------------------
 st.sidebar.divider()
-st.sidebar.caption("Movie Ratings Analyzer | Built with NumPy & Streamlit")
+st.sidebar.caption("Movie Ratings Analyzer | Built with NumPy, Pandas, Matplotlib, & Streamlit")

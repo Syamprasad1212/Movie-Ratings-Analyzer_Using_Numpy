@@ -1,6 +1,7 @@
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 # ==================================================
@@ -88,115 +89,150 @@ for movie_id, count in zip(top_10_movie_ids, top_10_counts):
 
 
 # ==================================================
-# 4. HIGHEST-RATED MOVIES ANALYSIS
+# 4. HIGHEST-RATED MOVIES ANALYSIS USING PANDAS
 # ==================================================
 
-# Calculate average rating for every movie
-average_ratings = []
-
-for movie_id in unique_movie_ids:
-
-    # Select ratings belonging to the current movie
-    movie_ratings = ratings_values[rated_movie_ids == movie_id]
-
-    avg = np.mean(movie_ratings)
-    average_ratings.append(avg)
-
-average_ratings = np.array(average_ratings)
+# Group ratings by movie ID and calculate statistics
+movie_stats = ratings.groupby("movieId")["rating"].agg(
+    average_rating="mean",
+    rating_count="count"
+)
 
 # Consider only movies with at least 50 ratings
-popular_mask = rating_counts >= 50
+popular_movies = movie_stats[
+    movie_stats["rating_count"] >= 50
+]
 
-popular_movie_ids = unique_movie_ids[popular_mask]
-popular_average_ratings = average_ratings[popular_mask]
-popular_rating_counts = rating_counts[popular_mask]
-
-print("\nMovies with at least 50 ratings:", len(popular_movie_ids))
+print("\nMovies with at least 50 ratings:", len(popular_movies))
 
 # Sort by average rating in descending order
-sorted_indices = np.argsort(popular_average_ratings)[::-1]
-
-top_10_indices = sorted_indices[:10]
-
-top_movie_ids = popular_movie_ids[top_10_indices]
-top_average_ratings = popular_average_ratings[top_10_indices]
-top_rating_counts = popular_rating_counts[top_10_indices]
+top_movies = popular_movies.sort_values(
+    by="average_rating",
+    ascending=False
+).head(10)
 
 print("\n========== TOP 10 HIGHEST-RATED MOVIES ==========")
 
-for movie_id, avg, count in zip(
-    top_movie_ids,
-    top_average_ratings,
-    top_rating_counts
-):
+for movie_id, row in top_movies.iterrows():
     title = movie_title_by_id[movie_id]
-    print(f"{title} | Average: {avg:.2f} | Ratings: {count}")
+
+    print(
+        f"{title} | Average: {row['average_rating']:.2f} "
+        f"| Ratings: {row['rating_count']}"
+    )
+
+# Merge movie details with rating statistics
+movie_analysis = movies.merge(
+    movie_stats,
+    on="movieId",
+    how="inner"
+)
+
+print("\n========== COMBINED MOVIE ANALYSIS ==========")
+print(movie_analysis.head())
 
 
 # ==================================================
-# 5. USER RATING ANALYSIS
+# 4.1 ADVANCED MOVIE INSIGHTS USING PANDAS
 # ==================================================
 
-# Find unique users and count ratings given by each user
-unique_user_ids, user_rating_counts = np.unique(
-    user_ids,
-    return_counts=True
+# Top 10 most-rated movies
+most_rated = movie_analysis.sort_values(
+    by="rating_count",
+    ascending=False
+).head(10)
+
+print("\n========== MOST POPULAR MOVIES ==========")
+
+print(
+    most_rated[["title", "rating_count"]].to_string(index=False)
+)
+
+
+# Top 10 highest-rated movies (minimum 50 ratings)
+highest_rated = movie_analysis[
+    movie_analysis["rating_count"] >= 50
+].sort_values(
+    by="average_rating",
+    ascending=False
+).head(10)
+
+print("\n========== HIGHEST-RATED MOVIES ==========")
+
+print(
+    highest_rated[
+        ["title", "average_rating", "rating_count"]
+    ].to_string(index=False)
+)
+
+
+# Find movies with average rating below 2.5
+low_rated = movie_analysis[
+    movie_analysis["average_rating"] < 2.5
+].sort_values(
+    by="average_rating"
+)
+
+print("\n========== LOWEST-RATED MOVIES ==========")
+
+print(
+    low_rated[
+        ["title", "average_rating", "rating_count"]
+    ].head(10).to_string(index=False)
+)
+
+
+# ==================================================
+# 5. USER RATING ANALYSIS USING PANDAS
+# ==================================================
+
+# Group ratings by user ID and calculate statistics
+user_stats = ratings.groupby("userId")["rating"].agg(
+    average_rating="mean",
+    rating_count="count"
 )
 
 print("\n========== USER STATISTICS ==========")
 
-print("Total Unique Users:", len(unique_user_ids))
+print("Total Unique Users:", len(user_stats))
 
 # Find the 10 most active users
-sorted_indices = np.argsort(user_rating_counts)[::-1]
-
-top_10_user_indices = sorted_indices[:10]
-
-top_users = unique_user_ids[top_10_user_indices]
-top_user_counts = user_rating_counts[top_10_user_indices]
+top_active_users = user_stats.sort_values(
+    by="rating_count",
+    ascending=False
+).head(10)
 
 print("\n========== TOP 10 MOST ACTIVE USERS ==========")
 
-for user, count in zip(top_users, top_user_counts):
-    print(f"User ID: {user} | Ratings: {count}")
+for user_id, row in top_active_users.iterrows():
+    print(
+        f"User ID: {user_id} | Ratings: {int(row['rating_count'])}"
+    )
 
-# Calculate average rating given by each user
-average_user_ratings = []
+# Find users with the highest average ratings
+top_average_users = user_stats.sort_values(
+    by="average_rating",
+    ascending=False
+).head(10)
 
-for user_id in unique_user_ids:
+print("\n========== TOP 10 USERS BY AVERAGE RATING ==========")
 
-    # Select all ratings given by the current user
-    user_ratings = ratings_values[user_ids == user_id]
+for user_id, row in top_average_users.iterrows():
+    print(
+        f"User ID: {user_id} | "
+        f"Average Rating: {row['average_rating']:.2f}"
+    )
 
-    avg = np.mean(user_ratings)
-    average_user_ratings.append(avg)
 
-average_user_ratings = np.array(average_user_ratings)
-
-print("\n========== AVERAGE RATINGS BY USERS ==========")
-
-for user_id, avg in zip(
-    unique_user_ids[:10],
-    average_user_ratings[:10]
-):
-    print(f"User ID: {user_id} | Average Rating: {avg:.2f}")
-
+# Convert user statistics index into NumPy arrays
+unique_user_ids = user_stats.index.to_numpy()
+user_rating_counts = user_stats["rating_count"].to_numpy()
 
 # ==================================================
-# 6. MOVIE SIMILARITY USING COSINE SIMILARITY
+# NUMPY MOVIE-USER RATING MATRIX
 # ==================================================
 
-# Create a matrix where:
-# Rows = Movies
-# Columns = Users
-# Values = Ratings
-# Zero = No rating given
-
-rating_matrix = np.zeros(
-    (len(unique_movie_ids), len(unique_user_ids))
-)
-
-# Map movie IDs and user IDs to their matrix positions
+# Create index mappings
 movie_index = {
     movie_id: index
     for index, movie_id in enumerate(unique_movie_ids)
@@ -207,76 +243,209 @@ user_index = {
     for index, user_id in enumerate(unique_user_ids)
 }
 
-# Fill the rating matrix using the original ratings
-for user, movie, rating in zip(
-    user_ids,
-    rated_movie_ids,
-    ratings_values
-):
-    m_index = movie_index[movie]
-    u_index = user_index[user]
-
-    rating_matrix[m_index, u_index] = rating
-
-print("\n========== MOVIE RATING MATRIX ==========")
-print("Rating Matrix Shape:", rating_matrix.shape)
-
-
-# ==================================================
-# 7. FIND TOP 5 SIMILAR MOVIES
-# ==================================================
-
-# Select the target movie (Toy Story)
-target_movie_id = 1
-
-target_index = movie_index[target_movie_id]
-target_vector = rating_matrix[target_index]
-
-# Calculate target movie magnitude once
-magnitude_target = np.linalg.norm(target_vector)
-
-similarities = []
-
-# Compare target movie with every other movie
-for i in range(len(unique_movie_ids)):
-
-    # Skip the target movie itself
-    if i == target_index:
-        continue
-
-    other_vector = rating_matrix[i]
-
-    dot_product = np.dot(target_vector, other_vector)
-    magnitude_other = np.linalg.norm(other_vector)
-
-    # Calculate cosine similarity
-    if magnitude_target != 0 and magnitude_other != 0:
-        similarity = dot_product / (
-            magnitude_target * magnitude_other
-        )
-    else:
-        similarity = 0
-
-    similarities.append((unique_movie_ids[i], similarity))
-
-# Sort movies by similarity score
-similarities.sort(
-    key=lambda x: x[1],
-    reverse=True
+# Create rating matrix
+rating_matrix = np.zeros(
+    (len(unique_movie_ids), len(unique_user_ids))
 )
 
+# Fill matrix with ratings
+for user_id, movie_id, rating in zip(
+    user_ids, rated_movie_ids, ratings_values
+):
+    movie_position = movie_index[movie_id]
+    user_position = user_index[user_id]
+
+    rating_matrix[movie_position, user_position] = rating
+
+print("\nRating Matrix Shape:", rating_matrix.shape)
+
+# ==================================================
+# OPTIMIZED COSINE SIMILARITY
+# ==================================================
+
+# Toy Story (1995)
+reference_movie_id = 1
+
+target_index = np.where(
+    unique_movie_ids == reference_movie_id
+)[0][0]
+
+target_vector = rating_matrix[target_index]
+
+# Calculate dot products for all movies at once
+dot_products = rating_matrix @ target_vector
+
+# Calculate magnitude of every movie vector
+movie_magnitudes = np.linalg.norm(
+    rating_matrix,
+    axis=1
+)
+
+target_magnitude = np.linalg.norm(target_vector)
+
+# Calculate cosine similarity safely
+denominator = target_magnitude * movie_magnitudes
+
+similarities = np.divide(
+    dot_products,
+    denominator,
+    out=np.zeros_like(dot_products, dtype=float),
+    where=denominator != 0
+)
+
+# Exclude Toy Story itself
+similarities[target_index] = -1
+
+# Get top 5 similar movies
+top_indices = np.argsort(similarities)[::-1][:5]
+
 print("\n========== TOP 5 SIMILAR MOVIES ==========")
-print("Reference Movie:", movie_title_by_id[target_movie_id])
+print("Reference Movie:", movie_title_by_id[reference_movie_id])
 
-for movie_id, score in similarities[:5]:
-
+for index in top_indices:
+    movie_id = unique_movie_ids[index]
     title = movie_title_by_id[movie_id]
+    score = similarities[index]
 
     print(f"{title} | Similarity: {score:.4f}")
 
+# ==================================================
+# 6. GENRE-BASED ANALYSIS
+# ==================================================
+
+genre_analysis = movie_analysis.assign(
+    genres=movie_analysis["genres"].str.split("|")
+).explode("genres")
+
+print("\n========== GENRE DATA ==========")
+print(genre_analysis[["title", "genres"]].head(10))
+
 
 # ==================================================
-# END OF MOVIE RATINGS ANALYZER
+# GENRE-WISE STATISTICS
 # ==================================================
 
-print("\n========== ANALYSIS COMPLETED ==========")
+genre_stats = genre_analysis.groupby("genres").agg(
+    average_rating=("average_rating", "mean"),
+    total_movies=("movieId", "nunique"),
+    total_ratings=("rating_count", "sum")
+)
+
+# Sort genres by average rating
+top_genres = genre_stats.sort_values(
+    by="average_rating",
+    ascending=False
+)
+
+print("\n========== GENRE-WISE AVERAGE RATINGS ==========")
+print(top_genres.round(2))
+
+# Find most popular genres by movie count
+popular_genres = genre_stats.sort_values(
+    by="total_movies",
+    ascending=False
+)
+
+print("\n========== MOST COMMON GENRES ==========")
+print(popular_genres[["total_movies"]].head(10))
+
+
+
+# ==================================================
+# WEIGHTED GENRE RATING ANALYSIS
+# ==================================================
+
+# Calculate rating points for each movie-genre row
+genre_analysis = genre_analysis.copy()
+
+genre_analysis["rating_points"] = (
+    genre_analysis["average_rating"] *
+    genre_analysis["rating_count"]
+)
+
+# Aggregate rating points and rating counts
+weighted_genre_stats = genre_analysis.groupby("genres").agg(
+    total_rating_points=("rating_points", "sum"),
+    total_ratings=("rating_count", "sum")
+)
+
+# Calculate weighted average
+weighted_genre_stats["weighted_average"] = (
+    weighted_genre_stats["total_rating_points"] /
+    weighted_genre_stats["total_ratings"]
+)
+
+weighted_genre_stats = weighted_genre_stats.sort_values(
+    by="weighted_average",
+    ascending=False
+)
+
+print("\n========== WEIGHTED GENRE RATINGS ==========")
+
+print(
+    weighted_genre_stats[
+        ["weighted_average", "total_ratings"]
+    ].round(2)
+)
+
+
+# ==================================================
+# VISUALIZATION 1: RATING DISTRIBUTION
+# ==================================================
+
+rating_counts = ratings["rating"].value_counts().sort_index()
+
+plt.figure(figsize=(10, 5))
+
+plt.bar(rating_counts.index, rating_counts.values)
+
+plt.title("Movie Rating Distribution")
+plt.xlabel("Rating")
+plt.ylabel("Number of Ratings")
+
+plt.xticks(np.arange(0.5, 5.1, 0.5))
+
+plt.tight_layout()
+plt.show()
+
+# ==================================================
+# VISUALIZATION 2: TOP 10 MOST-RATED MOVIES
+# ==================================================
+
+top_10_movies = most_rated.head(10).sort_values("rating_count")
+
+plt.figure(figsize=(10, 6))
+
+plt.barh(
+    top_10_movies["title"],
+    top_10_movies["rating_count"]
+)
+
+plt.title("Top 10 Most-Rated Movies")
+plt.xlabel("Number of Ratings")
+plt.ylabel("Movie")
+
+plt.tight_layout()
+plt.show()
+
+# ==================================================
+# VISUALIZATION 3: GENRE RATINGS
+# ==================================================
+
+genre_plot = weighted_genre_stats.sort_values("weighted_average")
+
+plt.figure(figsize=(10, 8))
+
+plt.barh(
+    genre_plot.index,
+    genre_plot["weighted_average"]
+)
+
+plt.title("Weighted Average Rating by Genre")
+plt.xlabel("Weighted Average Rating")
+plt.ylabel("Genre")
+
+plt.xlim(0, 5)
+
+plt.tight_layout()
+plt.show()
